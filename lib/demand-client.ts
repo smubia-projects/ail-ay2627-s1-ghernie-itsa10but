@@ -1,15 +1,11 @@
-import { BASE_PATH } from "./base-path.ts";
 import { MIN_SAMPLE, cleanTable, matchRole, type DemandTable, type RoleDemand } from "./edge/demand.ts";
+import fallback from "./role-demand.json" with { type: "json" };
 
 let loaded: Promise<DemandTable | null> | null = null;
 
-/** The market-demand table, fetched once per page load. A failure gives null and is retried next time. */
-export function loadDemand(fetchImpl: typeof fetch = fetch): Promise<DemandTable | null> {
-  loaded ??= fetchImpl(`${BASE_PATH}/api/demand`)
-    .then((response) => (response.ok ? response.json() : null))
-    .then((json) => (json ? cleanTable(json) : null))
-    .catch(() => null)
-    .then((table) => { if (!table) loaded = null; return table; });
+/** The market-demand table committed in lib/role-demand.json (the AI Lodge demo has no edge Worker for a live one). */
+export function loadDemand(): Promise<DemandTable | null> {
+  loaded ??= Promise.resolve(cleanTable(fallback));
   return loaded;
 }
 
