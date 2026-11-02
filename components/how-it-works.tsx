@@ -77,7 +77,6 @@ const stations: Station[] = [
     tip: [
       { t: "runSimulatedEngine runs the 4 agents in order, in your browser" },
       { t: "No model reads your résumé. Passage matching finds the passages each score rests on" },
-      { t: "Cloudflare AI reads the role text only, to find skills the word list misses. A skill it names must appear word for word in the posting" },
       { t: "Evidence points: 20 named, 25 used in a project, 14 number, 16 outcome, 25 second passage. 100 at most" },
       { t: "Role priority: High when the posting says required or repeats a skill, Medium when it names it once" },
       { t: "No supporting passage earns 0" },
@@ -87,16 +86,12 @@ const stations: Station[] = [
   },
   {
     id: "boost", n: "2a", title: "API boost",
-    line: "Your own key runs the agents. Web search is optional.",
+    line: "This demo's server runs the agents. No key needed, a few runs per visitor.",
     chips: [
-      { t: "API key", logo: "openrouter", tip: { title: "Your API key", lines: [
-        "Paste an Anthropic, OpenRouter or Gemini key in the Agent power panel.",
-        "It travels in one request header for that run. It isn't stored or logged.",
-        "The panel shows a rough cost per run for the model you pick.",
-      ] } },
-      { t: "Firecrawl", logo: "firecrawl", tip: { title: "Firecrawl, optional", lines: [
-        "Optional. Adds wider web search for Role Scout and Action Planner.",
-        "It runs on your own Firecrawl key. Without one, the edge Worker still looks up company pages.",
+      { t: "AI Lodge server", logo: "openrouter", tip: { title: "The demo's own key", lines: [
+        "In this SMU BIA AI Lodge demo, the four agents run on the club's AI gateway, so you don't need a key.",
+        "Each visitor gets a few API boost runs. The native scan has no limit.",
+        "To use your own Anthropic, OpenRouter or Gemini key and pick the model, use the original site at ghernie.com/itsa10but.",
       ] } },
     ],
     tipTitle: "API boost (lib/live-agents.ts)",
@@ -131,10 +126,9 @@ const station = (id: Station["id"]) => stations.find((s) => s.id === id)!;
 
 // The stack, in the cave. Only tech that is in package.json, the deployment or the app's routes.
 const stack: Chip[] = [
-  { t: "Next.js", logo: "nextjs", tip: { title: "Next.js", lines: ["The app and its API routes are built with Next.js 16."] } },
+  { t: "Next.js", logo: "nextjs", tip: { title: "Next.js", lines: ["The site is built with Next.js 16. Its API is a small Express server on Google Cloud Run."] } },
   { t: "React", logo: "react", tip: { title: "React", lines: ["The page you're looking at is built with React 19."] } },
-  { t: "Vercel", logo: "vercel", tip: { title: "Vercel", lines: ["Hosts the live site. The app deploys there with the Vercel CLI."] } },
-  { t: "MCP", logo: "mcp", tip: { title: "MCP", lines: ["The app serves an MCP server at /api/mcp, so other AI tools can call its job search and résumé analysis."] } },
+  { t: "Vercel", logo: "vercel", tip: { title: "Vercel", lines: ["Hosts this demo's site."] } },
 ];
 
 // The four agents each get their own row and their own tooltip. Tools and limits come from lib/agent-facts.ts, which a test checks against the real agent specs.
@@ -146,7 +140,7 @@ function agentTip(i: number): Point[] {
     { t: `Job: ${fact.tagline.join("")}` },
     { t: `Reads: ${fact.sees}` },
     { t: `Tools in API boost: ${fact.tools.length ? fact.tools.map((tool) => lower(tool.label)).join(", ") : "none. It works from the text it's given"}` },
-    ...(hasWeb(fact) ? [{ t: "Web search needs your Firecrawl key", logo: ["firecrawl" as const] }] : []),
+    ...(hasWeb(fact) ? [{ t: "Web search is off in this demo" }] : []),
     { t: `Limits in API boost: ${fact.toolCalls ? `up to ${fact.toolCalls} tool calls, ` : ""}${fact.seconds} seconds` },
     { t: "Native scan runs this agent in your browser, with no model call" },
   ];
@@ -201,17 +195,17 @@ function StopBox({ s, as: Tag = "li" }: { s: Station; as?: "li" | "div" }) {
 }
 
 /** The Cloudflare edge Worker, drawn as a cloud above the upload box. It is the site's own lookup helper, not a step in the route, so it floats in the sky beside the road. */
-const EDGE: Chip = { t: "What it does", tip: { title: "Cloudflare edge Worker", lines: [
-  "A small Worker on edge.ghernie.com does the site's web lookups for its server. It reads Wikipedia and Wikidata first and opens company pages directly.",
-  "Every hour it counts the skills named in public job postings for one role. Every night it asks Firecrawl for this week's AI headlines and stamps the date shown in the Sources card.",
-  "In native scan, Cloudflare AI reads the role text to find skills the word list misses. It never sees your résumé.",
-  "It keeps a one day cache and the shared run limits, which reset at midnight Singapore time. It logs token counts only.",
+const EDGE: Chip = { t: "What it does", tip: { title: "AI Lodge server", lines: [
+  "This SMU BIA AI Lodge demo runs the four agents on a small server on Google Cloud Run, through the club's AI gateway.",
+  "It also imports LinkedIn job links and reads the news feeds. It stores nothing: your résumé is used for the run and then dropped.",
+  "Each visitor gets a few API boost runs; after that the page shows how to join AI Lodge. The native scan, in your browser, has no limit.",
+  "The original site, with its Cloudflare edge Worker and your-own-key mode, is at ghernie.com/itsa10but.",
 ] } };
 function Cloud() {
   return <aside className="qm-cloud" aria-labelledby="qm-cloud-title" style={CLOUD_POS}>
     <svg className="qm-cloud-shape" viewBox="0 0 200 96" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M44 86C22 88 8 74 12 58C14 46 24 40 34 40C34 22 50 10 68 14C78 4 98 2 110 12C122 4 144 8 150 24C168 20 188 34 184 52C196 56 196 80 176 84C170 90 160 90 154 86Z" /></svg>
     <div className="qm-cloud-body">
-      <h3 id="qm-cloud-title"><Tip title={EDGE.tip!.title} word={<>{logoImg("cloudflare", 18)} Cloudflare edge</>} tip={EDGE.tip!.lines.map((t) => ({ t }))} /></h3>
+      <h3 id="qm-cloud-title"><Tip title={EDGE.tip!.title} word={<>AI Lodge server</>} tip={EDGE.tip!.lines.map((t) => ({ t }))} /></h3>
     </div>
   </aside>;
 }
