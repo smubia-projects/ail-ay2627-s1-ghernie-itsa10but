@@ -1,5 +1,5 @@
 "use client";
-import { BASE_PATH } from "@/lib/base-path";
+import { API_BASE } from "@/lib/api-base";
 import { useEffect, useId, useRef, useState } from "react";
 import { Info } from "lucide-react";
 import { allowedUrl, type NewsItem, type NewsMethod } from "@/lib/signals-news";
@@ -27,7 +27,7 @@ export function SgNews() {
     const timer = setTimeout(() => controller.abort(), 25000);
     (async () => {
       try {
-        const response = await fetch(BASE_PATH + "/api/signals", { signal: controller.signal });
+        const response = await fetch(API_BASE + "/api/signals", { signal: controller.signal });
         const data = (await response.json().catch(() => ({}))) as { items?: unknown; fetchedAt?: unknown; cached?: unknown; error?: unknown; method?: unknown; note?: unknown };
         if (!response.ok || !Array.isArray(data.items)) return setState({ kind: "error", message: typeof data.error === "string" ? data.error : "The news lookup didn't work this time. Try again later." });
         // The server already filters to the allowlist. Check again before anything becomes a link.

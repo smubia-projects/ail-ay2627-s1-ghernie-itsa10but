@@ -2,9 +2,10 @@
 import { BASE_PATH } from "@/lib/base-path";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { FileText, Heart, LoaderCircle, Monitor, Play, RefreshCw, RotateCcw, Trash2, Upload } from "lucide-react";
+import { FileText, LoaderCircle, Monitor, Play, RefreshCw, RotateCcw, Trash2, Upload } from "lucide-react";
 import type { AgentNote, Analysis, Resume } from "@/lib/analysis-types";
-import { DONATE_URL } from "@/lib/donate";
+import { API_BASE } from "@/lib/api-base";
+import { DemoPausedNotice, RateLimitCTA } from "@/components/career/rate-limit-cta";
 import { RunError } from "@/components/career/run-error";
 import { ExportBar } from "@/components/career/export-bar";
 import { sampleAnalysis, sampleJob } from "@/lib/analysis-types";
@@ -12,12 +13,10 @@ import { samplePaths } from "@/lib/sample-paths";
 import { readResumeFile } from "@/lib/read-resume";
 import { runSafetyCheck } from "@/lib/safety";
 import { runSimulatedEngine, READER_NAMES, type EngineEvent } from "@/lib/simulated-engine";
-import { readRoleSkills } from "@/lib/role-skills-client";
-import { turnstileHeaders, turnstileToken } from "@/lib/turnstile-client";
 import { type RunMode } from "@/lib/mode-copy";
 import { keyProvider } from "@/lib/openrouter-models";
 import type { ModelSettings } from "@/lib/agent-model";
-import { ReaderSwitch, chosenAgentModels, chosenModel, modelKeyHeaders, useModeStatus, type VisitorKeyState } from "@/components/career/reader-switch";
+import { ReaderSwitch, chosenAgentModels, chosenModel, useModeStatus, type VisitorKeyState } from "@/components/career/reader-switch";
 import { recordMcpCallStart, recordMcpCallEnd, clearMcpCallLog } from "@/lib/mcp-tools";
 import dynamic from "next/dynamic";
 import { SafetyPanel } from "@/components/career/safety-panel";
@@ -91,24 +90,27 @@ const STAGE_HINT: Record<Exclude<Stage, "idle">, string> = {
 };
 
 class LiveUnavailable extends Error {}
+/** 429 (this visitor's API boost runs are used up: the AI Lodge CTA) or 503 (the demo is paused: a notice). Neither is replaced by the native scan. */
+type Quota = { kind: "limit"; count: number } | { kind: "paused"; message: string };
+class QuotaStop extends Error { constructor(readonly quota: Quota) { super(quota.kind === "limit" ? "This demo's API boost runs are used up for now." : quota.message); } }
 /** An API boost run that stopped. The page shows the error callout and no result. */
 class LiveFailed extends Error {}
 const OPEN_KEYS = "itsa10but:open-keys";
 
 const isDemo = () => process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("demo") === "live";
 
-/** Reads /api/agents/stream as NDJSON. A refusal (400/429/503) carries a plain {error, fallback:"rules"} body. Visitor keys travel in headers only, never the body or URL. */
-async function* streamLive(items: Resume[], job: string, keys: VisitorKeyState, signal: AbortSignal): AsyncGenerator<EngineEvent> {
+/** Reads the API's /api/agents/stream as NDJSON. The AI Lodge demo runs the agents on its own server key; a 429 or 503 comes from the shared rate limiter. */
+async function* streamLive(items: Resume[], job: string, signal: AbortSignal): AsyncGenerator<EngineEvent> {
   // Development only: ?demo=live plays a scripted API boost run so the live screens can be checked without a model call.
   if (isDemo()) { const { demoLive } = await import("@/lib/demo-live"); yield* demoLive(items, job); return; }
-  const keyHeaders = modelKeyHeaders(keys);
-  const response = await fetch(BASE_PATH + "/api/agents/stream", {
-    method: "POST", headers: { "Content-Type": "application/json", ...keyHeaders, ...turnstileHeaders(await turnstileToken()) }, cache: "no-store", credentials: "omit", signal,
-    // The model pick is not a secret, so it travels in the body. The server checks it. Undefined (the recommended mix) is left out.
-    body: JSON.stringify({ resumes: items.map(({ id, name, text }) => ({ id, name, text })), job, model: chosenModel(keys), agentModels: chosenAgentModels(keys) }),
+  const response = await fetch(API_BASE + "/api/agents/stream", {
+    method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", credentials: "omit", signal,
+    body: JSON.stringify({ resumes: items.map(({ id, name, text }) => ({ id, name, text })), job }),
   });
   if (!response.ok || !response.body) {
-    const data = await response.json().catch(() => null) as { error?: unknown } | null;
+    const data = await response.json().catch(() => null) as { error?: unknown; message?: unknown; queries_used?: unknown } | null;
+    if (response.status === 429) throw new QuotaStop({ kind: "limit", count: typeof data?.queries_used === "number" ? data.queries_used : 0 });
+    if (response.status === 503) throw new QuotaStop({ kind: "paused", message: typeof data?.message === "string" ? data.message : "This demo is temporarily paused. Check back soon." });
     throw new LiveUnavailable(typeof data?.error === "string" ? data.error : "The agents were unavailable.");
   }
   const reader = response.body.getReader();
@@ -149,6 +151,7 @@ export default function Home() {
   const [ranMode, setRanMode] = useState<RunMode>("rules");
   const [notice, setNotice] = useState("");
   const [runError, setRunError] = useState("");
+  const [quota, setQuota] = useState<Quota | null>(null);
   const [usageRows, setUsageRows] = useState<UsageRow[]>([]);
   // Visitor API keys: React state only, never storage, cookies, URLs or the request body.
   const [keys, setKeys] = useState<VisitorKeyState>({ anthropic: "", firecrawl: "" });
@@ -390,9 +393,16 @@ export default function Home() {
       }
       };
       if (wantLive) {
-        try { await consume(streamLive(items, role, keys, abortRef.current!.signal)); }
+        try { await consume(streamLive(items, role, abortRef.current!.signal)); }
         catch (cause) {
           if (run !== runRef.current) throw cause;
+          if (cause instanceof QuotaStop) {
+            // The AI step stops and the modal explains why. No native scan is run in its place.
+            setQuota(cause.quota); setRanMode("live");
+            setAnalysis(sampleAnalysis); setHasResult(false);
+            setStageAgents(emptyAgents); setActivities(emptyActivity); setProcessStep(0); setActiveAgent(0); setUsageRows([]);
+            throw new LiveFailed(cause.message);
+          }
           // An API boost run that stops is not replaced by the native scan. The page says why and offers the choices.
           const why = cause instanceof LiveFailed || cause instanceof LiveUnavailable ? cause.message : "The agents did not finish.";
           setRunError(why); setRanMode("live");
@@ -402,8 +412,8 @@ export default function Home() {
         }
       }
       if (!outcome.result) {
-        // Cloudflare AI reads the role text only (never the résumé) and may name skills the text rules don't know. Any failure gives [].
-        const extraSkills = await readRoleSkills(role, { token: await turnstileToken(), signal: abortRef.current!.signal });
+        // The original site asks Cloudflare Workers AI for extra role skills here; the AI Lodge demo has no Worker, so the text rules alone run.
+        const extraSkills: string[] = [];
         if (run !== runRef.current) throw new Error("Analysis cancelled.");
         await consume(runSimulatedEngine(items, role, { stepDelayMs: 320, paceMs: reducedMotion() ? 1500 : undefined, extraSkills }));
       }
@@ -557,14 +567,17 @@ export default function Home() {
       <div className="ft-text">
         <p>itsa10but is independent. LinkedIn and the listed employers don&apos;t endorse or sponsor it, and their names and logos belong to their owners. Job listings come from outside feeds, so check the original posting before you apply.</p>
         <p>The four agent characters are original, fictional illustrations made for this project. They don&apos;t depict any real person, company, brand or character. Any resemblance is coincidental.</p>
+        <p>This copy runs as an <a href="https://www.smubia.com/ailodge" target="_blank" rel="noopener noreferrer">SMU BIA AI Lodge</a> showcase demo. The original site is <a href="https://ghernie.com/itsa10but" target="_blank" rel="noopener noreferrer">ghernie.com/itsa10but</a>, and the source is <a href="https://github.com/smubia-projects/ail-ay2627-s1-ghernie-itsa10but" target="_blank" rel="noopener noreferrer">on GitHub</a>.</p>
         <p>The idea, a play on the <a href="https://knowyourmeme.com/memes/shes-a-10-but-hes-a-10-but" target="_blank" rel="noopener noreferrer">“She’s a 10 but” meme</a>, and the design system were conceived by <a href="https://sg.linkedin.com/in/ghernie" target="_blank" rel="noopener noreferrer">Ghernie Encinas</a>, who has a strong interest in UI design, creativity, AI, cybersecurity, machine learning and service.</p>
       </div>
       <div className="ft-meta">
         {/* eslint-disable-next-line @next/next/no-img-element -- small static SVG, nothing to optimise */}
         <span className="ft-copy">© 2026 <a className="ft-author" href="https://sg.linkedin.com/in/ghernie" target="_blank" rel="noopener noreferrer"><img src={`${BASE_PATH}/assets/logos/linkedin-in.svg`} alt="" width="24" height="24" />Ghernie Encinas</a></span>
-        <LicensePopup provider={keyOwner}>{DONATE_URL && <a className="ft-donate" href={DONATE_URL} target="_blank" rel="noopener noreferrer"><Heart size={16} aria-hidden="true" focusable="false" />Tip<span className="sr-only"> (opens Stripe in a new tab)</span></a>}</LicensePopup>
+        <LicensePopup provider={keyOwner}><a className="ft-donate" href="https://ghernie.com/itsa10but" target="_blank" rel="noopener noreferrer">Original site<span className="sr-only"> (opens in a new tab)</span></a></LicensePopup>
         <p className="ft-web"><Monitor size={18} aria-hidden="true" focusable="false" /><span>Built for the best experience in web and desktop layouts</span></p>
       </div>
     </div></footer>
+    {quota?.kind === "limit" && <RateLimitCTA queriesMade={quota.count} onDismiss={() => setQuota(null)} />}
+    {quota?.kind === "paused" && <DemoPausedNotice message={quota.message} onDismiss={() => setQuota(null)} />}
   </>;
 }
