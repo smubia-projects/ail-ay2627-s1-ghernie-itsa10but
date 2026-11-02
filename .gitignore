@@ -30,6 +30,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -56,3 +57,4 @@ tsconfig.tsbuildinfo
 .wrangler/
 .next-dev.log
 .playwright-mcp/
+server/dist/
