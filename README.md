@@ -19,6 +19,21 @@ It is a one-page career workspace for students and people moving into tech. You 
 
 The idea, a play on the ["She's a 10 but" meme](https://knowyourmeme.com/memes/shes-a-10-but-hes-a-10-but), and the design system were conceived by [Ghernie Encinas](https://sg.linkedin.com/in/ghernie), who has a strong interest in UI design, creativity, AI, cybersecurity, machine learning and service. The project is finished and open to improvements.
 
+## SMU BIA AI Lodge showcase copy
+
+This fork ([smubia-projects/ail-ay2627-s1-ghernie-itsa10but](https://github.com/smubia-projects/ail-ay2627-s1-ghernie-itsa10but)) runs as a demo on the SMU BIA AI Lodge stack. **The original site, idea, design and code are by [Ghernie Encinas](https://sg.linkedin.com/in/ghernie): use [ghernie.com/itsa10but](https://ghernie.com/itsa10but)** for the full version. The page footer links there too.
+
+What the demo deploys:
+
+- **Site:** the Next.js app on Vercel, unchanged in look and branding. It calls the API at `NEXT_PUBLIC_API_BASE`.
+- **API:** a small Express server (`server/`, bundled with esbuild, Docker image on Google Cloud Run). It runs the same four agents (`lib/live-agents.ts`) and hosts the LinkedIn job import and the news feeds. `GET /api/health`, `GET /api/mode`, `POST /api/agents/stream`, `POST /api/jobs/import`, `GET /api/signals`, `GET /api/skill-news`.
+- **Native scan:** unchanged, in your browser, no limit.
+- **API boost:** the four agents run on the AI Lodge model gateway with the demo's own key (`API_KEY`, `API_BASE_URL`, `MODEL_NAME` for three agents, `CHEAP_MODEL_NAME` for Role Scout, both `deepseek-v4-flash`; the final JSON turn is sent as `json_object` with the schema in the prompt, since DeepSeek rejects `json_schema`). Each visitor gets a few reviews (one per review, not per model call; `RATE_LIMIT_REVIEW_MAX`, tuned centrally). After that the page shows the AI Lodge invitation; no native scan is run in place of a review.
+
+What the demo leaves out (still in the original): your own Anthropic, OpenRouter or Gemini key and model choice; Firecrawl web search for the agents; the Cloudflare edge Worker (live market data, company lookups, the Workers AI role read, the nightly snapshot) and its D1/KV storage; Cloudflare Turnstile; the MCP endpoint; the admin hub; and the Stripe tip link. The market figures come from the committed `lib/role-demand.json`.
+
+Local run: `npm run build:server && npm run start:server` (API on :8080, reads `.env`-style variables from the environment), then `NEXT_PUBLIC_API_BASE=http://localhost:8080 npm run dev`.
+
 ## 🎯 Problem
 
 Many people in tech, and in roles next to it, know their résumé could be better and don't know where to start. The feedback they find is either generic ("add more numbers") or a score with no reason behind it, so they can't tell which line earned it or what to change. The free material they need does exist, but it's spread across hundreds of sites, and nobody has sorted it around the skill they're missing. Tools that rewrite the whole résumé with one fixed AI model add another problem. The result reads well, and it isn't really yours.
