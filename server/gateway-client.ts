@@ -32,7 +32,9 @@ export function toGatewayRequest(request: LiveRequest, config: GatewayConfig): R
   // DeepSeek on the gateway rejects json_schema (400). The system prompt already carries the schema and parseAgentJson
   // checks the answer against it, so the final turn only asks for a JSON object.
   if ((body.response_format as { type?: string } | undefined)?.type === "json_schema") body.response_format = { type: "json_object" };
-  return { ...body, model: gatewayModel(request.model, config) };
+  const model = gatewayModel(request.model, config);
+  // DeepSeek thinks at length by default, and these agents have 25 to 40 seconds each: ask it to answer directly.
+  return { ...body, model, ...(/deepseek/i.test(model) ? { reasoning_effort: "none" } : {}) };
 }
 
 function failure(status: number): Error {
