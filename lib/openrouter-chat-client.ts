@@ -9,7 +9,8 @@ import type { Block, LiveClient, LiveMessage, LiveRequest, LiveResponse } from "
  * and these agents have 25 to 40 seconds each. Only the chat endpoint lets a request set `reasoning`. A reasoning level is tried from the lowest and steps up when a model
  * refuses it (some cannot switch thinking off), and the level that worked is remembered for that model. The key goes in a header and no error text repeats it.
  */
-const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+// The deployed API uses server/gateway-client.ts; this client is the local OpenRouter path. Its host still comes from env.
+const ENDPOINT = `${((process.env.API_BASE_URL ?? "").trim() || "https://openrouter.ai/api/v1").replace(/\/+$/, "")}/chat/completions`;
 
 /** From "no thinking" up to "whatever the model does by default". A model that rejects one level moves to the next. */
 const LADDER = [{ effort: "none" }, { effort: "low" }, null] as const;
