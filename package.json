@@ -14,11 +14,16 @@
     "lint": "eslint . --ignore-pattern .next",
     "test": "node --experimental-strip-types --test \"lib/**/*.test.ts\"",
     "demand": "node --experimental-strip-types scripts/build-role-demand.ts",
-    "eval": "node --experimental-strip-types scripts/run-eval.ts"
+    "eval": "node --experimental-strip-types scripts/run-eval.ts",
+    "build:server": "esbuild server/server.ts --bundle --platform=node --target=node22 --format=cjs --alias:next/server=./server/next-shim.ts --outfile=server/dist/server.cjs --log-level=warning",
+    "start:server": "node server/dist/server.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
+    "@upstash/redis": "^1.40.0",
     "baseline-browser-mapping": "^2.11.28",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
     "lucide-react": "^1.31.0",
     "next": "16.3.8",
     "pdfjs-dist": "^6.4.299",
@@ -26,9 +31,12 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "esbuild": "^0.25.12",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.8",
     "typescript": "5.9.3"

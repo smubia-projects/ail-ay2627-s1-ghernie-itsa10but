@@ -11,8 +11,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "next-env.d.ts",
-    // Wrangler's temporary bundles.
-    "worker/.wrangler/**",
+    // The API bundle (npm run build:server) and the shared rate-limit engine, vendored byte for byte.
+    "server/dist/**",
+    "server/rateLimitEngine.js",
   ]),
 ]);
 
