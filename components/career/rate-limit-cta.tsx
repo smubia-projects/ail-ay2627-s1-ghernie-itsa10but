@@ -12,7 +12,7 @@ const PROJECT_CTA = {
   accentColor: '#167A66',
   headline: "Your résumé got the full panel!",
   description:
-    'This demo ran {count} API boost reviews for you, its limit for now. Each one has four AI agents read your résumé against the role. Want to build AI apps like this one? Join us, or run your own copy from GitHub.',
+    'Want to build AI that gives job seekers honest feedback before an employer does? AI Lodge members build in teams and pitch finished products to a room that wants to see them work.',
   programme: 'AI Lodge',
   programmeLink: 'https://www.smubia.com/ailodge',
   githubLink: 'https://github.com/smubia-projects/ail-ay2627-s1-ghernie-itsa10but',
