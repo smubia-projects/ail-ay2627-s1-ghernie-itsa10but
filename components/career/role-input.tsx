@@ -1,5 +1,5 @@
 "use client";
-import { BASE_PATH } from "@/lib/base-path";
+import { API_BASE } from "@/lib/api-base";
 import { useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
 import { HelpCircle, LoaderCircle, Paperclip } from "lucide-react";
 import { WordTip } from "@/components/career/word-tip";
@@ -87,7 +87,7 @@ export function RoleInput({ value, onChange, typing = false, clearWhen }: { valu
     if (!extractLinkedinJobId(text)) { setStatus(""); return; }
     setStatus("Reading the LinkedIn posting…");
     try {
-      const response = await fetch(BASE_PATH + "/api/jobs/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: text.trim() }) });
+      const response = await fetch(API_BASE + "/api/jobs/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: text.trim() }) });
       const data = await response.json() as { imported?: boolean; text?: string; message?: string };
       if (request !== requestRef.current) return;
       setStatus("");

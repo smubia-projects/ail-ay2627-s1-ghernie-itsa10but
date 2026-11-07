@@ -35,13 +35,8 @@ test("no line for an unknown role, a missing table or a sample that is too small
   assert.equal(demandLine(table, "SOC analyst", "SIEM"), null);
 });
 
-test("the table loads once, and a failed load is tried again", async () => {
-  let calls = 0;
-  const ok = (async () => { calls += 1; return new Response(JSON.stringify({ roles: table.roles })); }) as unknown as typeof fetch;
-  const bad = (async () => { calls += 1; return new Response("nope", { status: 500 }); }) as unknown as typeof fetch;
-  assert.equal(await loadDemand(bad), null);
-  const first = await loadDemand(ok);
-  assert.equal(first?.roles["Data analyst"].sample, 22);
-  await loadDemand(ok);
-  assert.equal(calls, 2, "one failed call, one good call, then the cached table");
+test("the table is the committed one, loaded once", async () => {
+  const first = await loadDemand();
+  assert.ok(first && Object.keys(first.roles).length > 0, "the bundled role-demand.json has roles");
+  assert.equal(await loadDemand(), first, "the same table every time");
 });

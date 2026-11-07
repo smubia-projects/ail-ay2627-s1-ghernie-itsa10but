@@ -1,4 +1,4 @@
-import { BASE_PATH } from "./base-path.ts";
+import { API_BASE } from "./api-base.ts";
 import { SKILL_NEWS_MAX, catalogSkill, techUrl, type SkillArticle } from "./skill-news.ts";
 
 /**
@@ -22,7 +22,7 @@ async function send(skills: string[]): Promise<Map<string, SkillNewsResult>> {
   const stop = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(BASE_PATH + "/api/skill-news?" + [...skills].sort().map((skill) => "s=" + encodeURIComponent(skill)).join("&"), { signal: controller.signal });
+    response = await fetch(API_BASE + "/api/skill-news?" + [...skills].sort().map((skill) => "s=" + encodeURIComponent(skill)).join("&"), { signal: controller.signal });
   } catch {
     throw new Error(FAILED);
   } finally {
