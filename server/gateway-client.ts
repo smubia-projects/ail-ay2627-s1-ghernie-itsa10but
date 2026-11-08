@@ -12,7 +12,7 @@ export type GatewayConfig = { apiKey: string; baseUrl: string; model: string; ch
 export function gatewayConfig(env: Record<string, string | undefined> = process.env): GatewayConfig | null {
   const apiKey = (env.API_KEY ?? "").trim();
   if (!apiKey) return null;
-  const model = (env.MODEL_NAME ?? "").trim() || "deepseek-v4-flash";
+  const model = (env.MODEL_NAME ?? "").trim() || "deepseek-v4-1-flash-260910";
   return {
     apiKey,
     baseUrl: ((env.API_BASE_URL ?? "").trim() || "https://api.apiyi.com/v1").replace(/\/+$/, ""),
@@ -29,8 +29,8 @@ export function toGatewayRequest(request: LiveRequest, config: GatewayConfig): R
   const body = toChatRequest(request, null);
   delete body.reasoning;
   delete body.provider;
-  // DeepSeek on the gateway rejects json_schema (400). The system prompt already carries the schema and parseAgentJson
-  // checks the answer against it, so the final turn only asks for a JSON object.
+  // deepseek-v4-flash on the gateway rejected json_schema (400); v4.1 accepts it, but the system prompt already carries
+  // the schema and parseAgentJson checks the answer against it, so the final turn still only asks for a JSON object.
   if ((body.response_format as { type?: string } | undefined)?.type === "json_schema") body.response_format = { type: "json_object" };
   const model = gatewayModel(request.model, config);
   // DeepSeek thinks at length by default, and these agents have 25 to 40 seconds each: ask it to answer directly.
